@@ -1,7 +1,9 @@
 from urllib.parse import urlencode
 from scrapy.utils.response import open_in_browser
 from scrapy.http import Request, FormRequest
+
 import scrapy
+from ..items import OriasItem
 
 
 class OriasSpider(scrapy.Spider):
@@ -56,7 +58,7 @@ class OriasSpider(scrapy.Spider):
     }
 
     global_count = 1
-    start_at_page = 1730
+    start_at_page = 1
 
     def start_requests(self):
         request = Request(self.BASE_URL, callback=self.parse_search)
@@ -70,6 +72,7 @@ class OriasSpider(scrapy.Spider):
                               formdata=self.data)
         request.meta['params'] = self.params
         return [request]
+    {'COde naf':'565465', 'mandataire':[{"nom":"", },{}]}
 
     def parse_menu(self, response):
         if self.global_count < self.start_at_page:
@@ -100,18 +103,20 @@ class OriasSpider(scrapy.Spider):
 
     def parse_data(self, response):
         final_dict = {}
-        for dt in response.css("#mainint dt"):
+        for dt in response.css("#mainint div")[0:3].css("dt"):
             dt_value = dt.css('::text').get()
             dd_value = dt.xpath('./following-sibling::dd/text()').get()
 
-            if dt_value == "Date de suppression":
-                categ = dt.xpath("..//..//div[@class='header']/text()").get()
-                if categ is not None:
-                    dt_value = dt_value + "_" + categ.strip()
+        mandataire = []
+        for elem in response.xpath():  # A finir
+            dict_mandataire = {
+                "Nom": response.xpath(),
+                "Date": response.xpath(),
+            }
+            mandataire.append(dict_mandataire)
 
-            while dt_value in final_dict:
-                dt_value = dt_value + "_bis"
-            final_dict[dt_value] = dd_value
+        final_dict['mandataire'] = mandataire
+
         yield final_dict
 
     def save_page(self, response, name="page"):
