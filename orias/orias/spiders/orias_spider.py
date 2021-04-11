@@ -72,9 +72,9 @@ class OriasSpider(scrapy.Spider):
                               formdata=self.data)
         request.meta['params'] = self.params
         return [request]
-    {'COde naf':'565465', 'mandataire':[{"nom":"", },{}]}
 
     def parse_menu(self, response):
+        print(f"Page : {self.global_count}")
         if self.global_count < self.start_at_page:
             self.global_count += 3
             number = "{:,}".format(self.global_count).replace(",", "\xa0")
@@ -93,27 +93,46 @@ class OriasSpider(scrapy.Spider):
                               priority=2)
 
             url = response.css("span.pagelinks a img[alt='Suivant']").xpath('../@href').get()
-            if url is not None:  # and self.global_count < 20:
+            if url is not None and self.global_count < 10:
                 self.global_count += 1
                 yield Request(url, callback=self.parse_menu)
             else:
                 self.save_page(response, "last_page")
 
-            print(f"Page : {self.global_count}")
-
     def parse_data(self, response):
         final_dict = {}
-        for dt in response.css("#mainint div")[0:3].css("dt"):
+        # Infos global
+        if len(response.css("#mainint div")) >= 1:
+            for dt in response.css("#mainint div")[0].css("dt"):
+                dt_value = dt.css('::text').get()
+                if dt.xpath('./following-sibling::dd'):
+                    dd_value = dt.xpath('./following-sibling::dd')[0].xpath('normalize-space(./text())').get()
+                    final_dict[dt_value] = dd_value
+
+        # Adresses
+        for dt in response.css("#intermediaryCoordinate2").css("dt"):
             dt_value = dt.css('::text').get()
-            dd_value = dt.xpath('./following-sibling::dd/text()').get()
+            if dt.xpath('./following-sibling::dd'):
+                dd_value = dt.xpath('./following-sibling::dd')[0].xpath('normalize-space(./text())').get()
+
+                while dt_value in final_dict:
+                    dt_value = dt_value + "_bis"
+                final_dict[dt_value] = dd_value
 
         mandataire = []
-        for elem in response.xpath():  # A finir
-            dict_mandataire = {
-                "Nom": response.xpath(),
-                "Date": response.xpath(),
-            }
-            mandataire.append(dict_mandataire)
+        for categ in response.css('#mainint div.row-fluid div.intermediaryRegistrations'):
+            for sub_categ in categ.css('div.row-fluid div div.blocint3'):
+                dict_mandataire = {}
+                if categ.css('h2::text').get():
+                    dict_mandataire["categ"] = categ.css('h2::text').get().strip()
+                if sub_categ.css('div.header::text').get():
+                    dict_mandataire["sub_categ"] = sub_categ.css('div.header::text').get().strip()
+                if sub_categ.css('div.header span::text').get():
+                    dict_mandataire["type"] = sub_categ.css('div.header span::text').get().strip()
+                if sub_categ.css('dl dd::text').get():
+                    dict_mandataire["date"] = sub_categ.css('dl dd::text').get().strip()
+
+                mandataire.append(dict_mandataire)
 
         final_dict['mandataire'] = mandataire
 
